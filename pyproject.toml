@@ -28,3 +28,6 @@ lint.ignore = [ "E501", "S101" ]
 [tool.pytest]
 ini_options.testpaths = [ "tests" ]
 ini_options.addopts = "-ra"
+# Generated projects are large (virtualenvs, node_modules): keep them only on failure.
+ini_options.tmp_path_retention_policy = "failed"
+ini_options.tmp_path_retention_count = 1

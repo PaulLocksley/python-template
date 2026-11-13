@@ -28,8 +28,7 @@ INSTALLED_APPS = [
     "django_htmx",
     "django_tasks_db",
     "django_vite",
-    "{{ package_name }}.domain",
-    "{{ package_name }}.interfaces",
+    "{{ package_name }}",
 ]
 
 MIDDLEWARE = [
@@ -43,7 +42,7 @@ MIDDLEWARE = [
     "django_htmx.middleware.HtmxMiddleware",
 ]
 
-ROOT_URLCONF = "{{ package_name }}.interfaces.urls"
+ROOT_URLCONF = "{{ package_name }}.interface.urls"
 WSGI_APPLICATION = "{{ package_name }}.wsgi.application"
 ASGI_APPLICATION = "{{ package_name }}.asgi.application"
 

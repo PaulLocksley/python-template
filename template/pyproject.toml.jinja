@@ -36,7 +36,7 @@ dependencies = [
     "pydantic-settings>=2.16",
     "typer>=0.29",
 ]
-scripts.{{ project_slug }} = "{{ package_name }}.interfaces.cli:app"
+scripts.{{ project_slug }} = "{{ package_name }}.interface.cli:app"
 {%- else %}
 dependencies = []
 {%- endif %}
@@ -216,7 +216,7 @@ run.source = [ "{{ package_name }}" ]
 {%- if is_django %}
 run.omit = [
     "*/asgi.py",
-    "*/interfaces/http.py", # type-only module
+    "*/interface/ui/http.py", # type-only module
     "*/migrations/*",
     "*/settings/*",
     "*/wsgi.py",
@@ -240,26 +240,44 @@ report.show_missing = true
 root_packages = [ "{{ package_name }}", "tests" ]
 include_external_packages = true
 # Layers, highest first. A layer may import the layers below it, never above.
+# `domain | vendors` share a level and may not import each other.
 # `exhaustive` fails the build when a new top-level package is not assigned a layer.
 contracts = [
-    { id = "layers", name = "Layers: {% if not is_library %}interfaces > {% endif %}services > integrations > domain", type = "layers", containers = [
+    { id = "layers", name = "Layers: {% if not is_library %}interface > {% endif %}usecases > domain | vendors > data > utils", type = "layers", containers = [
         "{{ package_name }}",
     ], layers = [
 {%- if not is_library %}
-        "interfaces",
+        "interface",
 {%- endif %}
-        "services",
-        "integrations",
-        "domain",
+        "usecases",
+        "domain | vendors",
+        "data",
+        "utils",
     ], exhaustive = true, exhaustive_ignores = [
 {%- if is_django %}
+        "apps",
         "asgi",
         "config",
+        "management",
+        "migrations",
+        "models",
         "settings",
         "wsgi",
 {%- elif is_cli %}
         "config",
 {%- endif %}
+    ] },
+{%- if not is_library %}
+    { id = "vendors-from-usecases-only", name = "Only usecases call vendors", type = "forbidden", source_modules = [
+        "{{ package_name }}.interface",
+    ], forbidden_modules = [
+        "{{ package_name }}.vendors",
+    ], allow_indirect_imports = true },
+{%- endif %}
+    { id = "vendors-are-standalone", name = "Vendors know nothing of our data", type = "forbidden", source_modules = [
+        "{{ package_name }}.vendors",
+    ], forbidden_modules = [
+        "{{ package_name }}.data",
     ] },
     { id = "no-tests-in-source", name = "Source code never imports tests", type = "forbidden", source_modules = [
         "{{ package_name }}",
@@ -268,33 +286,41 @@ contracts = [
     ] },
 {%- if is_django %}
     { id = "settings-via-django-conf", name = "Settings are read through django.conf.settings", type = "forbidden", source_modules = [
+        "{{ package_name }}.data",
         "{{ package_name }}.domain",
-        "{{ package_name }}.integrations",
-        "{{ package_name }}.interfaces",
-        "{{ package_name }}.services",
+        "{{ package_name }}.interface",
+        "{{ package_name }}.usecases",
+        "{{ package_name }}.utils",
+        "{{ package_name }}.vendors",
     ], forbidden_modules = [
         "{{ package_name }}.config",
         "{{ package_name }}.settings",
     ] },
-    { id = "web-free-core", name = "Only interfaces know about HTTP and htmx", type = "forbidden", source_modules = [
+    { id = "web-free-core", name = "Only interface knows about HTTP and htmx", type = "forbidden", source_modules = [
+        "{{ package_name }}.data",
         "{{ package_name }}.domain",
-        "{{ package_name }}.integrations",
-        "{{ package_name }}.services",
+        "{{ package_name }}.usecases",
+        "{{ package_name }}.utils",
+        "{{ package_name }}.vendors",
     ], forbidden_modules = [
         "django_htmx",
     ] },
 {%- elif is_cli %}
-    { id = "config-at-the-edge", name = "Configuration is loaded by interfaces and passed down", type = "forbidden", source_modules = [
+    { id = "config-at-the-edge", name = "Configuration is loaded by interface and passed down", type = "forbidden", source_modules = [
+        "{{ package_name }}.data",
         "{{ package_name }}.domain",
-        "{{ package_name }}.integrations",
-        "{{ package_name }}.services",
+        "{{ package_name }}.usecases",
+        "{{ package_name }}.utils",
+        "{{ package_name }}.vendors",
     ], forbidden_modules = [
         "{{ package_name }}.config",
     ] },
-    { id = "cli-free-core", name = "Only interfaces know about the CLI framework", type = "forbidden", source_modules = [
+    { id = "cli-free-core", name = "Only interface knows about the CLI framework", type = "forbidden", source_modules = [
+        "{{ package_name }}.data",
         "{{ package_name }}.domain",
-        "{{ package_name }}.integrations",
-        "{{ package_name }}.services",
+        "{{ package_name }}.usecases",
+        "{{ package_name }}.utils",
+        "{{ package_name }}.vendors",
     ], forbidden_modules = [
         "typer",
     ] },

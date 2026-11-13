@@ -112,8 +112,8 @@ worker: (manage "db_worker")
 vendor-htmx version:
     curl --fail --silent --show-error --location \
         "https://cdn.jsdelivr.net/npm/htmx.org@{{ version }}/dist/htmx.min.js" \
-        --output "src/{{ package }}/interfaces/static/vendor/htmx.min.js"
-    echo "{{ version }}" > "src/{{ package }}/interfaces/static/vendor/htmx.version"
+        --output "src/{{ package }}/static/vendor/htmx.min.js"
+    echo "{{ version }}" > "src/{{ package }}/static/vendor/htmx.version"
 {%- endraw %}
 {%- else %}
 

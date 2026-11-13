@@ -31,8 +31,10 @@ uvx copier update
 - **uv** for dependencies (`uv.lock` committed) and **just** for tasks. `just`
   is a dev dependency, so `uv run just ...` works with nothing else installed.
 - **Layered architecture enforced by Import Linter**:
-  `interfaces > services > integrations > domain`. New top-level packages must
-  be assigned a layer. See the generated `AGENTS.md`.
+  `interface > usecases > domain | vendors > data > utils`, the aarbox
+  layering. Only `usecases` may call `vendors`, each layer is organised by
+  feature, and new top-level packages must be assigned a layer. See the
+  generated `AGENTS.md`.
 - **Tests** in top-level `tests/` split into `unit`, `integration` and
   `functional`. Unit and integration tests must mirror the source tree
   (`scripts/check_test_mirror.py`). 80% branch coverage floor, warnings are errors.
@@ -50,11 +52,13 @@ uvx copier update
 
 ## Django specifics
 
-- `domain` is the Django app that owns models and migrations; `interfaces` is
-  the app that owns views, templates, static files and admin.
+- The package is one Django app, as in aarbox: `migrations/`, `templates/`
+  and `static/` sit at the package root. Models live in
+  `data/<feature>/models.py` and are registered in `models.py`.
+- `interface/` is split into `api/` and `ui/`.
 - Vite + django-vite build `frontend/src` (TypeScript, Tailwind v4). pnpm and
   Biome for JavaScript tooling. htmx is vendored under
-  `interfaces/static/vendor/` and updated with `just vendor-htmx <version>`.
+  `static/vendor/` and updated with `just vendor-htmx <version>`.
 - `just up` starts Postgres in Docker; the app runs on the host with `just dev`.
 - `just django-check` runs `check --deploy` against production settings and
   fails on missing migrations.

@@ -1,0 +1,6 @@
+from {{ package_name }}.domain.greeting.message import Greeting
+
+
+def test_message_addresses_the_name() -> None:
+    """The message includes the name it is addressed to."""
+    assert Greeting(name="Ada").message() == "Hello, Ada!"

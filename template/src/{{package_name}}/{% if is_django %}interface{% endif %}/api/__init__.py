@@ -1,0 +1,1 @@
+"""Machine-facing endpoints (JSON)."""

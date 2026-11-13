@@ -1,0 +1,13 @@
+"""Django app configuration. The whole package is one Django app."""
+
+from django.apps import AppConfig
+
+
+class {{ package_name.split('_') | map('capitalize') | join }}Config(AppConfig):
+    """Owns the models, migrations, templates, static files and commands."""
+
+    name = "{{ package_name }}"
+
+    def ready(self) -> None:
+        """Register the admin classes, which live in the interface layer."""
+        from {{ package_name }}.interface.ui import admin  # noqa: F401, PLC0415

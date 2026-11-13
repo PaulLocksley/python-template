@@ -1,0 +1,8 @@
+from {{ package_name }}.usecases.tasks import send_greeting
+
+
+def test_send_greeting_runs_through_the_task_backend() -> None:
+    """Enqueueing runs the task inline under the test settings' immediate backend."""
+    result = send_greeting.enqueue("Ada")
+
+    assert result.return_value == "Hello, Ada!"

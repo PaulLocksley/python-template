@@ -31,12 +31,16 @@ activate `.venv`) to drop the `uv run` prefix. `just` on its own lists every rec
 
 ```
 src/{{ package_name }}/
-{%- if not is_library %}
-  interfaces/    entry points
+{%- if is_django %}
+  interface/     api/ and ui/ entry points
+{%- elif is_cli %}
+  interface/     the command line
 {%- endif %}
-  services/      use cases
-  integrations/  external systems
-  domain/        {% if is_django %}models and business rules{% else %}business rules{% endif %}
+  usecases/      orchestration; the only caller of vendors
+  domain/        business rules
+  vendors/       external systems
+  data/          {% if is_django %}models and queries{% else %}persistence and data structures{% endif %}
+  utils/         generic helpers
 {%- if is_django %}
   settings/      base, dev, test, prod
 frontend/src/    TypeScript and Tailwind, built by Vite
@@ -44,7 +48,7 @@ frontend/src/    TypeScript and Tailwind, built by Vite
 tests/           unit, integration, functional
 ```
 
-Layering is enforced by Import Linter. See [AGENTS.md](AGENTS.md) for the
+Each layer is organised by feature. Layering is enforced by Import Linter. See [AGENTS.md](AGENTS.md) for the
 rules and conventions.
 
 ## Configuration

@@ -15,11 +15,17 @@ import pytest
 
 TEMPLATE = Path(__file__).resolve().parent.parent
 VARIANTS = ("library", "cli", "django")
-LAYERS = {
-    "library": ("services", "integrations", "domain"),
-    "cli": ("interfaces", "services", "integrations", "domain"),
-    "django": ("interfaces", "services", "integrations", "domain"),
-}
+SHARED_LAYERS = ("usecases", "domain", "vendors", "data", "utils")
+# (importing layer, imported layer) pairs that the architecture forbids.
+FORBIDDEN_IMPORTS = (
+    ("domain", "usecases"),
+    ("domain", "vendors"),
+    ("data", "domain"),
+    ("vendors", "data"),
+    ("vendors", "domain"),
+    ("utils", "data"),
+    ("interface", "vendors"),
+)
 
 
 def run(project: Path, *command: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -87,19 +93,24 @@ def test_has_the_expected_layers(project: Path) -> None:
     variant = project.parent.name.rstrip("0123456789")
     package = package_dir(project)
 
-    for layer in LAYERS[variant]:
+    for layer in SHARED_LAYERS:
         assert (package / layer / "__init__.py").is_file()
-    assert (package / "interfaces").exists() == (variant != "library")
+    assert (package / "interface").exists() == (variant != "library")
+    assert (package / "interface" / "ui").exists() == (variant == "django")
+    assert (package / "interface" / "api").exists() == (variant == "django")
     assert (project / "package.json").exists() == (variant == "django")
     assert (project / "Dockerfile").exists() == (variant != "library")
 
 
-def test_upward_import_breaks_the_layers_contract(project: Path) -> None:
-    """Import Linter rejects the domain layer importing from the service layer."""
+@pytest.mark.parametrize(("importer", "imported"), FORBIDDEN_IMPORTS)
+def test_forbidden_import_breaks_a_contract(project: Path, importer: str, imported: str) -> None:
+    """Import Linter rejects each import direction the architecture rules out."""
     package = package_dir(project)
-    offender = package / "domain" / "offender.py"
+    if not (package / importer).exists():
+        pytest.skip(f"this variant has no {importer} layer")
+    offender = package / importer / "offender.py"
     offender.write_text(
-        f'"""Violates layering."""\n\nfrom {package.name}.services import greeting  # noqa: F401\n'
+        f'"""Violates layering."""\n\nfrom {package.name} import {imported}  # noqa: F401\n'
     )
     try:
         result = run(project, "uv", "run", "lint-imports", check=False)
@@ -108,6 +119,17 @@ def test_upward_import_breaks_the_layers_contract(project: Path) -> None:
 
     assert result.returncode != 0
     assert "BROKEN" in result.stdout
+
+
+def test_usecases_may_call_vendors(project: Path) -> None:
+    """The one sanctioned route to an external system stays open."""
+    package = package_dir(project)
+    caller = package / "usecases" / "caller.py"
+    caller.write_text(f'"""Allowed."""\n\nfrom {package.name} import vendors  # noqa: F401\n')
+    try:
+        run(project, "uv", "run", "lint-imports")
+    finally:
+        caller.unlink()
 
 
 def test_unassigned_top_level_package_breaks_the_layers_contract(project: Path) -> None:

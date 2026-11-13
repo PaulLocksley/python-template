@@ -1,4 +1,4 @@
-"""Domain layer: the core concepts and rules of the system.
+"""Domain: business rules, one package per feature.
 
-Lowest layer. It may not import services, integrations or interfaces.
+May import data and utils. May not import usecases, vendors or interface.
 """

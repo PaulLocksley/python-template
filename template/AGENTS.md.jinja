@@ -29,37 +29,53 @@ contracts live in `[tool.importlinter]` in `pyproject.toml`.
 
 ```
 src/{{ package_name }}/
-{%- if not is_library %}
-  interfaces/    entry points: {% if is_django %}views, URLs, templates, admin, management commands{% else %}the command line{% endif %}
+{%- if is_django %}
+  interface/     entry points, split into api/ (JSON) and ui/ (HTML, htmx, admin)
+{%- elif is_cli %}
+  interface/     entry points: the command line
 {%- endif %}
-  services/      use cases; the only place that orchestrates work{% if is_django %}; background tasks{% endif %}
-  integrations/  clients for external systems
-  domain/        {% if is_django %}models, migrations and pure business rules{% else %}pure business rules and data types{% endif %}
+  usecases/      orchestrate one task end to end; the only layer that calls vendors
+  domain/        business rules and strategies
+  vendors/       clients for external systems, one package per system
+  data/          {% if is_django %}Django models, queries and data structures{% else %}persistence and data structures{% endif %}
+  utils/         generic helpers with no business knowledge
 ```
+
+Allowed imports, top to bottom:
+`{% if not is_library %}interface > {% endif %}usecases > domain | vendors > data > utils`.
 
 Rules that follow from this:
 
-- **Interfaces stay thin.** Parse input, call one service, present the result.
-  No business logic in {% if is_django %}views, templates or admin{% elif is_cli %}CLI commands{% else %}the public API module{% endif %}.
-- **Domain imports nothing above it**, and never an integration.
+- **Organise by feature inside each layer**: `domain/<feature>/`,
+  `data/<feature>/`{% if is_django %}, `interface/ui/<feature>/`, `interface/api/<feature>/`{% endif %}.
+  `usecases/` is flat, one module per feature.
+- **Interface stays thin.** Parse input, call a use case or a domain rule,
+  present the result. No business logic in {% if is_django %}views, templates or admin{% elif is_cli %}CLI commands{% else %}the public API module{% endif %}.
+- **Only usecases call vendors.** Domain rules never reach an external system:
+  a use case fetches from the vendor and hands plain values to the domain.
+  {%- if not is_library %} Interface never imports vendors directly.{% endif %}
+- **Vendors are standalone.** They import `utils` and nothing else of ours, so
+  they return their own types, not our models.
+- **Domain and vendors do not import each other.**
 - **A new top-level package must be assigned a layer** in the `layers`
   contract, otherwise `just arch` fails (`exhaustive = true`).
 - **Do not weaken a contract to make a change pass.** If an import is
   forbidden, the code is in the wrong layer; move it.
 {%- if is_django %}
+- **One Django app.** The package itself is the app, so `migrations/`,
+  `templates/`, `static/` and `management/` sit at the package root. Models
+  live in `data/<feature>/models.py` and must be imported in `models.py`,
+  which is how Django finds them. Admin classes live in `interface/ui/admin.py`.
 - **Settings** are declared once, typed, in `config.py`, and read elsewhere via
   `django.conf.settings`. Nothing outside `settings/` imports `config.py`.
-- **Django apps.** `domain` is the Django app that owns models and migrations
-  (app label `{{ package_name }}`); `interfaces` is the app that owns
-  templates, static files, admin and management commands.
 - **htmx.** Views return a full page, or a template partial
-  (`render(request, "page.html#partial")`) when `request.htmx` is set. htmx is
-  vendored at `interfaces/static/vendor/`; update it with `just vendor-htmx`.
+  (`render(request, "feature/page.html#partial")`) when `request.htmx` is set.
+  htmx is vendored at `static/vendor/`; update it with `just vendor-htmx`.
 - **Frontend.** TypeScript and Tailwind live in `frontend/src` and are built by
   Vite. Prefer htmx attributes over custom TypeScript.
 {%- elif is_cli %}
-- **Configuration** is loaded by interfaces from `config.py` and passed down as
-  plain values. Lower layers never read the environment.
+- **Configuration** is loaded by the interface layer from `config.py` and
+  passed down as plain values. Lower layers never read the environment.
 {%- else %}
 - **Public API.** Only names re-exported from `{{ package_name }}/__init__.py`
   are public.
@@ -77,7 +93,7 @@ tests/
 {%- endif %}
 ```
 
-- `tests/unit/a/test_b.py` must correspond to `src/{{ package_name }}/a/b.py`.
+- `tests/unit/domain/x/test_y.py` must correspond to `src/{{ package_name }}/domain/x/y.py`.
   `just arch` checks this; exceptions go in `[tool.test-mirror]`.
 - Every test function has a one-line docstring stating the behaviour.
 - Warnings are errors in tests. Fix the cause instead of filtering.

@@ -1,0 +1,8 @@
+"""Model registry: Django discovers models by importing this module.
+
+Models live in ``data/<feature>/models.py``. Import each one here.
+"""
+
+from {{ package_name }}.data.users.models import User
+
+__all__ = ["User"]

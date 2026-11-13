@@ -1,0 +1,21 @@
+"""Greeting views."""
+
+from typing import TYPE_CHECKING
+
+from django.shortcuts import render
+from django.views.decorators.http import require_http_methods
+
+from {{ package_name }}.usecases.greeting import greet
+
+if TYPE_CHECKING:
+    from django.http import HttpResponse
+
+    from {{ package_name }}.interface.ui.http import HtmxHttpRequest
+
+
+@require_http_methods(["GET"])
+def home(request: HtmxHttpRequest) -> HttpResponse:
+    """Render the home page, or only the greeting partial for htmx requests."""
+    greeting = greet(request.GET.get("name", ""))
+    template = "greeting/home.html#greeting" if request.htmx else "greeting/home.html"
+    return render(request, template, {"greeting": greeting})

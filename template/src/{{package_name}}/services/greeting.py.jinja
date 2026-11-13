@@ -1,8 +1,0 @@
-"""Example use case. Replace with your own services."""
-
-from {{ package_name }}.domain.greeting import DEFAULT_NAME, Greeting
-
-
-def greet(name: str = "") -> Greeting:
-    """Build a greeting for ``name``, falling back to a default when it is blank."""
-    return Greeting(name=name.strip() or DEFAULT_NAME)
