@@ -1,0 +1,19 @@
+import pytest
+from pydantic import ValidationError
+
+from {{ package_name }}.config import Settings
+
+
+def test_log_level_is_read_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Settings are read from prefixed environment variables."""
+    monkeypatch.setenv("{{ package_name | upper }}_LOG_LEVEL", "DEBUG")
+
+    assert Settings().log_level == "DEBUG"
+
+
+def test_invalid_values_fail_fast(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A malformed value is rejected at startup rather than at first use."""
+    monkeypatch.setenv("{{ package_name | upper }}_LOG_LEVEL", "LOUD")
+
+    with pytest.raises(ValidationError):
+        Settings()

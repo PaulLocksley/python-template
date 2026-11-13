@@ -1,0 +1,32 @@
+import pytest
+from bs4 import BeautifulSoup
+from django.test import Client
+from django.urls import reverse
+
+
+def test_visitor_is_greeted_by_name_without_a_page_reload(client: Client) -> None:
+    """The page wires the input to htmx, and the fragment it fetches replaces the greeting."""
+    page = BeautifulSoup(client.get(reverse("home")).content, "html.parser")
+    name_input = page.find("input", attrs={"name": "name"})
+    assert name_input is not None
+    assert page.select_one("#greeting") is not None
+    assert name_input["hx-target"] == "#greeting"
+
+    fragment = client.get(
+        str(name_input["hx-get"]),
+        {"name": "Ada"},
+        headers={"HX-Request": "true"},
+    )
+
+    swapped = BeautifulSoup(fragment.content, "html.parser").select_one("#greeting")
+    assert swapped is not None
+    assert swapped.get_text(strip=True) == "Hello, Ada!"
+
+
+@pytest.mark.django_db
+def test_health_check_reports_ok(client: Client) -> None:
+    """The health endpoint answers once the database is reachable."""
+    response = client.get(reverse("healthz"))
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}

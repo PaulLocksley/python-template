@@ -1,0 +1,28 @@
+"""Typed configuration, read from the environment and an optional ``.env`` file.
+
+This is the single place environment variables are declared. Only the Django
+settings modules import it; everything else reads ``django.conf.settings``.
+"""
+
+from pydantic import SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Lets development and tests run with zero configuration. Production settings
+# refuse to start with it.
+INSECURE_SECRET_KEY = "insecure-development-only-secret-key"  # noqa: S105
+
+
+class Settings(BaseSettings):
+    """Environment configuration. Each field is read from the upper-cased variable name."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    secret_key: SecretStr = SecretStr(INSECURE_SECRET_KEY)
+    # The default matches the Postgres service in compose.yaml.
+    database_url: str = "postgres://{{ package_name }}:{{ package_name }}@localhost:5432/{{ package_name }}"
+    # Lists are given as JSON, e.g. ALLOWED_HOSTS='["example.org"]'
+    allowed_hosts: list[str] = ["localhost", "127.0.0.1"]
+    csrf_trusted_origins: list[str] = []
+    # Disable only when TLS is terminated somewhere that cannot forward the scheme.
+    secure_ssl_redirect: bool = True
+    log_level: str = "INFO"

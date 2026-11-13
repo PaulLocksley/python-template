@@ -1,0 +1,34 @@
+# CI for the template itself: generate every variant and run its checks.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+variables:
+  UV_CACHE_DIR: $CI_PROJECT_DIR/.cache/uv
+  UV_LINK_MODE: copy
+  # Copier resolves the template version from git tags.
+  GIT_DEPTH: 0
+
+test:
+  image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+  services:
+    - name: postgres:18
+      alias: postgres
+  variables:
+    POSTGRES_USER: template
+    POSTGRES_PASSWORD: template
+    POSTGRES_DB: template
+    DATABASE_URL: postgres://template:template@postgres:5432/template
+  cache:
+    key:
+      files: [uv.lock]
+    paths: [.cache/uv]
+  before_script:
+    - apt-get update && apt-get install --yes --no-install-recommends git nodejs npm
+    - npm install --global pnpm@12
+    - uv sync --locked
+  script:
+    - uv run just lint
+    - uv run just test

@@ -1,0 +1,13 @@
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!src
+!manage.py
+!package.json
+!pnpm-lock.yaml
+!vite.config.ts
+!tsconfig.json
+!frontend
+frontend/dist
+**/__pycache__

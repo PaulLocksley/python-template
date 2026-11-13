@@ -1,0 +1,11 @@
+"""Admin site registrations."""
+
+from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+
+from {{ package_name }}.domain.models import User
+
+
+@admin.register(User)
+class UserAdmin(DjangoUserAdmin):
+    """Admin for the custom user model."""

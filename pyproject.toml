@@ -1,0 +1,30 @@
+[project]
+name = "python-template"
+version = "0"
+description = "Copier template for Python projects"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "copier>=9.19",
+    "pytest>=9.2",
+    "ruff>=0.17",
+    "rust-just>=1.59",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py314"
+line-length = 99
+# The template directory holds Jinja sources, not Python.
+extend-exclude = [ "template" ]
+lint.select = [ "B", "E", "F", "I", "PT", "RUF", "S", "SIM", "UP" ]
+lint.ignore = [ "E501", "S101" ]
+
+[tool.pytest]
+ini_options.testpaths = [ "tests" ]
+ini_options.addopts = "-ra"

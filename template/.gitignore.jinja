@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+build/
+dist/
+*.egg-info/
+
+# Tooling
+.ruff_cache/
+.pytest_cache/
+.import_linter_cache/
+.coverage
+.coverage.*
+coverage.xml
+report.xml
+htmlcov/
+.audit-requirements.txt
+
+# Local configuration
+.env
+{%- if is_django %}
+
+# Django
+staticfiles/
+*.sqlite3
+
+# Frontend
+node_modules/
+frontend/dist/
+{%- endif %}
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.DS_Store

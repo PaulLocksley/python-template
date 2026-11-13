@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1 class="text-3xl font-semibold tracking-tight">It works</h1>
+    <p class="mt-2 text-slate-600">Type a name: htmx swaps in only the greeting partial.</p>
+    <input type="search"
+           name="name"
+           placeholder="Your name"
+           autocomplete="off"
+           aria-label="Your name"
+           class="mt-6 w-full rounded-md border border-slate-300 bg-white px-3 py-2 shadow-sm focus:border-sky-500 focus:outline-none"
+           hx-get="{% url 'home' %}"
+           hx-trigger="input changed delay:200ms"
+           hx-target="#greeting"
+           hx-swap="outerHTML">
+    {% partialdef greeting inline %}
+        <p id="greeting" class="mt-6 text-xl font-medium" data-flash>{{ greeting.message }}</p>
+    {% endpartialdef greeting %}
+{% endblock content %}

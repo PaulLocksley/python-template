@@ -1,0 +1,10 @@
+"""Django app holding the models and their migrations."""
+
+from django.apps import AppConfig
+
+
+class DomainConfig(AppConfig):
+    """The domain layer as a Django app, labelled with the project name."""
+
+    name = "{{ package_name }}.domain"
+    label = "{{ package_name }}"

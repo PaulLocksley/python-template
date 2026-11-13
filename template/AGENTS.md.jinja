@@ -1,0 +1,95 @@
+# {{ project_name }}: working agreements
+
+Instructions for coding agents and humans alike. `CLAUDE.md` imports this file.
+
+## Commands
+
+Run everything through `just` (installed in the project environment, so
+`uv run just <recipe>` always works).
+
+| Recipe | What it does |
+| --- | --- |
+| `just setup` | Install dependencies and git hooks |
+| `just check` | Everything CI runs. Run before declaring work done |
+| `just fmt` | Auto-format and auto-fix |
+| `just lint` | ruff, pyproject-fmt{% if is_django %}, djlint{% endif %} |
+| `just typecheck` | ty |
+| `just arch` | Import Linter contracts and the test mirror check |
+| `just test [pytest args]` | Tests with coverage (80% branch coverage floor) |
+{%- if is_django %}
+| `just up` / `just migrate` / `just dev` | Postgres, migrations, Django + Vite dev servers |
+| `just frontend-check` | Biome, `tsc`, production Vite build |
+{%- endif %}
+
+## Architecture
+
+The package is split into layers. A layer may import the layers below it and
+never the layers above. Import Linter enforces this (`just arch`); the
+contracts live in `[tool.importlinter]` in `pyproject.toml`.
+
+```
+src/{{ package_name }}/
+{%- if not is_library %}
+  interfaces/    entry points: {% if is_django %}views, URLs, templates, admin, management commands{% else %}the command line{% endif %}
+{%- endif %}
+  services/      use cases; the only place that orchestrates work{% if is_django %}; background tasks{% endif %}
+  integrations/  clients for external systems
+  domain/        {% if is_django %}models, migrations and pure business rules{% else %}pure business rules and data types{% endif %}
+```
+
+Rules that follow from this:
+
+- **Interfaces stay thin.** Parse input, call one service, present the result.
+  No business logic in {% if is_django %}views, templates or admin{% elif is_cli %}CLI commands{% else %}the public API module{% endif %}.
+- **Domain imports nothing above it**, and never an integration.
+- **A new top-level package must be assigned a layer** in the `layers`
+  contract, otherwise `just arch` fails (`exhaustive = true`).
+- **Do not weaken a contract to make a change pass.** If an import is
+  forbidden, the code is in the wrong layer; move it.
+{%- if is_django %}
+- **Settings** are declared once, typed, in `config.py`, and read elsewhere via
+  `django.conf.settings`. Nothing outside `settings/` imports `config.py`.
+- **Django apps.** `domain` is the Django app that owns models and migrations
+  (app label `{{ package_name }}`); `interfaces` is the app that owns
+  templates, static files, admin and management commands.
+- **htmx.** Views return a full page, or a template partial
+  (`render(request, "page.html#partial")`) when `request.htmx` is set. htmx is
+  vendored at `interfaces/static/vendor/`; update it with `just vendor-htmx`.
+- **Frontend.** TypeScript and Tailwind live in `frontend/src` and are built by
+  Vite. Prefer htmx attributes over custom TypeScript.
+{%- elif is_cli %}
+- **Configuration** is loaded by interfaces from `config.py` and passed down as
+  plain values. Lower layers never read the environment.
+{%- else %}
+- **Public API.** Only names re-exported from `{{ package_name }}/__init__.py`
+  are public.
+{%- endif %}
+
+## Tests
+
+```
+tests/
+  unit/          no I/O{% if is_django %}, no database{% endif %}; mirrors src/{{ package_name }}/
+  integration/   {% if is_django %}database, views, tasks{% else %}real I/O and entry points{% endif %}; mirrors src/{{ package_name }}/
+  functional/    user-visible flows end to end; free-form layout
+{%- if is_django %}
+  factories/     factory_boy factories
+{%- endif %}
+```
+
+- `tests/unit/a/test_b.py` must correspond to `src/{{ package_name }}/a/b.py`.
+  `just arch` checks this; exceptions go in `[tool.test-mirror]`.
+- Every test function has a one-line docstring stating the behaviour.
+- Warnings are errors in tests. Fix the cause instead of filtering.
+
+## Conventions
+
+- Python 3.14, fully type annotated, checked by ty.
+- ruff is the linter and formatter; its rule set in `pyproject.toml` is the
+  style guide. Prefer fixing code over adding `noqa`; every `noqa` names its rule.
+- Public modules, classes and functions have docstrings.
+- Dependencies are managed with uv (`uv add`, `uv add --dev`). Commit `uv.lock`.
+- Commit messages follow Conventional Commits (`feat:`, `fix:`, ...); release
+  notes are generated from them.
+- This project was generated from a Copier template. Shared tooling changes
+  belong in the template and arrive via `copier update`.

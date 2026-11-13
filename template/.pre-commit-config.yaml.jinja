@@ -1,0 +1,86 @@
+# Fast checks run on commit; type check, architecture and unit tests run on push.
+# Tools run from the project environment, so their versions come from the
+# lock files, the same as CI.
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+exclude: ^src/.*/static/vendor/
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+{%- if is_django %}
+        exclude: ^pnpm-lock\.yaml$ # multi-document file
+{%- endif %}
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --frozen ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+      - id: pyproject-fmt
+        name: pyproject-fmt
+        entry: uv run --frozen pyproject-fmt
+        language: system
+        files: ^pyproject\.toml$
+{%- if is_django %}
+      - id: djlint-format
+        name: djlint format
+        entry: uv run --frozen djlint --reformat --quiet
+        language: system
+        files: ^src/.*/templates/.*\.html$
+      - id: djlint-lint
+        name: djlint lint
+        entry: uv run --frozen djlint --lint --quiet
+        language: system
+        files: ^src/.*/templates/.*\.html$
+      - id: biome
+        name: biome
+        entry: pnpm exec biome check --write --no-errors-on-unmatched --files-ignore-unknown=true
+        language: system
+        types_or: [ts, javascript, css, json]
+{%- endif %}
+
+      - id: typecheck
+        name: ty
+        entry: uv run --frozen ty check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+      - id: lint-imports
+        name: import-linter
+        entry: uv run --frozen lint-imports
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+      - id: test-mirror
+        name: test mirror
+        entry: uv run --frozen python scripts/check_test_mirror.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+      - id: unit-tests
+        name: unit tests
+        entry: uv run --frozen pytest tests/unit --no-cov
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

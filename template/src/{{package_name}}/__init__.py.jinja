@@ -1,0 +1,8 @@
+"""{{ description }}."""
+{%- if is_library %}
+
+from {{ package_name }}.domain.greeting import Greeting
+from {{ package_name }}.services.greeting import greet
+
+__all__ = ["Greeting", "greet"]
+{%- endif %}

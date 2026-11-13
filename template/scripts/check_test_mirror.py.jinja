@@ -1,0 +1,53 @@
+"""Check that test files mirror the source tree.
+
+Every ``tests/<kind>/a/b/test_c.py`` (for the kinds listed in ``MIRRORED_KINDS``)
+must correspond to ``src/{{ package_name }}/a/b/c.py`` or to the package
+``src/{{ package_name }}/a/b/c/``. Functional tests describe flows, not modules,
+so they are not checked.
+
+Deliberate exceptions are listed in ``[tool.test-mirror] exceptions`` in pyproject.toml.
+"""
+
+import sys
+import tomllib
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SOURCE = ROOT / "src" / "{{ package_name }}"
+TESTS = ROOT / "tests"
+MIRRORED_KINDS = ("unit", "integration")
+
+
+def find_orphans(source: Path, tests: Path, exceptions: frozenset[str]) -> list[Path]:
+    """Return the test files that have no matching source module."""
+    orphans = []
+    for kind in MIRRORED_KINDS:
+        for test_file in sorted((tests / kind).rglob("test_*.py")):
+            if test_file.relative_to(ROOT).as_posix() in exceptions:
+                continue
+            relative = test_file.relative_to(tests / kind)
+            target = source / relative.parent / relative.stem.removeprefix("test_")
+            if not target.with_suffix(".py").is_file() and not target.is_dir():
+                orphans.append(test_file)
+    return orphans
+
+
+def main() -> int:
+    """Run the check and return a process exit code."""
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    exceptions = frozenset(pyproject.get("tool", {}).get("test-mirror", {}).get("exceptions", []))
+    orphans = find_orphans(SOURCE, TESTS, exceptions)
+    for orphan in orphans:
+        expected = orphan.relative_to(ROOT).as_posix()
+        sys.stderr.write(f"{expected}: no matching module under src/{{ package_name }}/\n")
+    if orphans:
+        sys.stderr.write(
+            "Rename or move the test to mirror the source tree, "
+            "or add it to [tool.test-mirror] exceptions.\n",
+        )
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

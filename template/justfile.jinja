@@ -1,0 +1,122 @@
+package := "{{ package_name }}"
+{%- if is_django %}
+# Placeholder that satisfies Django's key-strength check; never used to serve traffic.
+check_secret := "check-only-0123456789-abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+{%- endif %}
+{%- raw %}
+
+# List the available recipes
+default:
+    @just --list
+
+# Install dependencies and git hooks
+setup:
+    git rev-parse --git-dir > /dev/null 2>&1 || git init
+    uv sync
+{%- endraw %}
+{%- if is_django %}
+    pnpm install
+{%- endif %}
+{%- raw %}
+    uv run pre-commit install
+
+# Format and auto-fix everything that can be fixed
+fmt:
+    uv run ruff check --fix
+    uv run ruff format
+    uv run pyproject-fmt pyproject.toml
+{%- endraw %}
+{%- if is_django %}
+    uv run djlint src --reformat --quiet
+    pnpm exec biome check --write
+{%- endif %}
+{%- raw %}
+
+# Lint without changing files
+lint:
+    uv run ruff check
+    uv run ruff format --check
+    uv run pyproject-fmt --check pyproject.toml
+{%- endraw %}
+{%- if is_django %}
+    uv run djlint src --check --quiet
+    uv run djlint src --lint --quiet
+{%- endif %}
+{%- raw %}
+
+# Type check with ty
+typecheck:
+    uv run ty check
+
+# Architecture checks: import layering and test layout
+arch:
+    uv run lint-imports
+    uv run python scripts/check_test_mirror.py
+
+# Run the tests (extra arguments go to pytest, e.g. `just test -n auto tests/unit`)
+test *args:
+    uv run pytest {{ args }}
+
+# Audit locked dependencies for known vulnerabilities
+audit:
+    uv export --frozen --no-emit-project --quiet --output-file .audit-requirements.txt
+    uv run pip-audit --require-hashes --disable-pip --requirement .audit-requirements.txt
+{%- endraw %}
+{%- if is_django %}
+{%- raw %}
+
+# Lint, type check and build the frontend
+frontend-check:
+    pnpm exec biome ci
+    pnpm exec tsc --noEmit
+    pnpm exec vite build
+
+# Django system checks against production settings (needs a frontend build), and missing migrations
+django-check:
+    SECRET_KEY={{ check_secret }} DJANGO_SETTINGS_MODULE={{ package }}.settings.prod uv run python manage.py check --deploy --fail-level WARNING
+    uv run python manage.py makemigrations --check --dry-run
+
+# Everything CI runs
+check: lint typecheck arch test frontend-check django-check
+
+# Start Postgres
+up:
+    docker compose up --detach --wait
+
+# Stop Postgres
+down:
+    docker compose down
+
+# Run any manage.py command, e.g. `just manage createsuperuser`
+manage *args:
+    uv run python manage.py {{ args }}
+
+# Apply migrations
+migrate: (manage "migrate")
+
+# Create migrations
+makemigrations *args: (manage "makemigrations" args)
+
+# Run Django and Vite together (Ctrl-C stops both)
+dev:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    trap 'kill 0' EXIT
+    pnpm exec vite &
+    uv run python manage.py runserver
+
+# Run the background task worker
+worker: (manage "db_worker")
+
+# Replace the vendored htmx with the given version, e.g. `just vendor-htmx 2.0.11`
+vendor-htmx version:
+    curl --fail --silent --show-error --location \
+        "https://cdn.jsdelivr.net/npm/htmx.org@{{ version }}/dist/htmx.min.js" \
+        --output "src/{{ package }}/interfaces/static/vendor/htmx.min.js"
+    echo "{{ version }}" > "src/{{ package }}/interfaces/static/vendor/htmx.version"
+{%- endraw %}
+{%- else %}
+
+# Everything CI runs
+check: lint typecheck arch test
+{%- endif %}

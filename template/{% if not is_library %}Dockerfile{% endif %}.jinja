@@ -1,0 +1,63 @@
+# syntax=docker/dockerfile:1
+{%- if is_django %}
+
+# --- Frontend assets -------------------------------------------------------
+FROM node:24-slim AS frontend
+WORKDIR /app
+RUN corepack enable
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY vite.config.ts tsconfig.json ./
+COPY frontend frontend
+# Tailwind scans the Django templates for class names.
+COPY src src
+RUN pnpm exec vite build
+{%- endif %}
+
+# --- Python dependencies ---------------------------------------------------
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS build
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never
+WORKDIR /app
+{%- if is_django %}
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-install-project
+{%- else %}
+# There is no .git in the build context, so the version is passed in.
+ARG VERSION=0.0.0
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION}
+COPY pyproject.toml uv.lock README.md ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-install-project
+COPY src src
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-editable
+{%- endif %}
+
+# --- Runtime ---------------------------------------------------------------
+FROM python:3.14-slim-bookworm AS runtime
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/.venv/bin:$PATH"
+RUN groupadd --system --gid 1000 app \
+    && useradd --system --uid 1000 --gid app --no-create-home app
+WORKDIR /app
+COPY --from=build /app/.venv .venv
+{%- if is_django %}
+ENV PYTHONPATH=/app/src \
+    DJANGO_SETTINGS_MODULE={{ package_name }}.settings.prod
+COPY manage.py ./
+COPY src src
+COPY --from=frontend /app/frontend/dist frontend/dist
+RUN SECRET_KEY=build-only python manage.py collectstatic --noinput
+USER app
+EXPOSE 8000
+# Run migrations as a release step: `python manage.py migrate`.
+# Run the task worker as a second container: `python manage.py db_worker`.
+CMD ["gunicorn", "{{ package_name }}.wsgi:application", "--bind", "0.0.0.0:8000", "--access-logfile", "-"]
+{%- else %}
+USER app
+ENTRYPOINT ["{{ project_slug }}"]
+{%- endif %}

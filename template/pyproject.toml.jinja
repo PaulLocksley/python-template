@@ -1,0 +1,310 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [ "hatch-vcs>=0.5", "hatchling>=1.27" ]
+
+[project]
+name = "{{ project_slug }}"
+description = "{{ description }}"
+readme = "README.md"
+authors = [
+    { name = "{{ author_name }}", email = "{{ author_email }}" },
+]
+requires-python = ">=3.14"
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.14",
+{%- if is_library %}
+    "Typing :: Typed",
+{%- endif %}
+]
+dynamic = [ "version" ]
+{%- if is_django %}
+dependencies = [
+    "dj-database-url>=3.1",
+    "django>=6.1",
+    "django-htmx>=1.29",
+    "django-tasks-db>=0.13",
+    "django-vite>=3.2",
+    "gunicorn>=27",
+    "psycopg[binary]>=3.3",
+    "pydantic-settings>=2.16",
+    "python-json-logger>=4.2",
+    "whitenoise>=6.12",
+]
+{%- elif is_cli %}
+dependencies = [
+    "pydantic-settings>=2.16",
+    "typer>=0.29",
+]
+scripts.{{ project_slug }} = "{{ package_name }}.interfaces.cli:app"
+{%- else %}
+dependencies = []
+{%- endif %}
+
+[dependency-groups]
+dev = [
+{%- if is_django %}
+    "beautifulsoup4>=4.14",
+    "django-debug-toolbar>=6",
+    "django-extensions>=4.1",
+    "django-stubs>=6.1",
+    "djlint>=1.50",
+    "factory-boy>=3.3",
+{%- endif %}
+    "import-linter>=2.16",
+    "ipdb>=0.13",
+    "ipython>=9",
+    "pip-audit>=2.10",
+    "pre-commit>=4.7",
+    "pyproject-fmt>=2.30",
+    "pytest>=9.2",
+    "pytest-cov>=7",
+{%- if is_django %}
+    "pytest-django>=4.14",
+{%- endif %}
+    "pytest-xdist>=3.8",
+    "ruff>=0.17",
+    "rust-just>=1.59",
+    "time-machine>=3",
+    "ty>=0.0.102",
+]
+
+[tool.hatch]
+version.source = "vcs"
+version.fallback-version = "0.0.0"
+build.targets.wheel.packages = [ "src/{{ package_name }}" ]
+{%- if is_django %}
+
+[tool.djlint]
+#
+# D J L I N T
+#
+profile = "django"
+max_line_length = 99
+# Django 6 template partials
+custom_blocks = "partialdef"
+{%- endif %}
+
+[tool.ruff]
+#
+# R U F F
+#
+target-version = "py314"
+line-length = 99
+src = [ ".", "src" ]
+extend-exclude = [
+    "**/migrations/", # Django generated
+]
+# All the rules are defined here: https://docs.astral.sh/ruff/rules/
+lint.select = [
+    "A",     # flake8-builtins: disallows shadowing Python built-ins
+    "ANN",   # flake8-annotations: checks for missing or incorrect type hints
+    "ARG",   # flake8-unused-arguments: detects unused function arguments
+    "ASYNC", # flake8-async: detects misuse of async/await syntax
+    "B",     # flake8-bugbear: finds likely bugs and design issues
+    "C4",    # flake8-comprehensions: suggests simpler and faster comprehensions
+    "C90",   # mccabe: flags overly complex functions
+    "COM",   # flake8-commas: checks for trailing commas consistency
+    "D",     # pydocstyle: checks for presence and formatting of docstrings
+    "DJ",    # flake8-django: checks for common Django-specific issues
+    "E",     # pycodestyle (errors): checks for style guide violations (PEP8)
+    "EM",    # flake8-errmsg: enforces string literals in exception messages
+    "F",     # pyflakes: detects undefined variables, unused imports, etc.
+    "FIX",   # flake8-fixme: detects FIXME/TODO comments in code
+    "FLY",   # flynt: suggests converting `.format()` to f-strings
+    "FURB",  # refurb: suggests modernizations and simplifications of Python code
+    "G",     # flake8-logging-format: checks for incorrect logging format strings
+    "I",     # isort: checks for import sorting and grouping
+    "INP",   # flake8-no-pep420: prevents use of implicit namespace packages
+    "INT",   # flake8-gettext: enforces proper use of gettext (i18n)
+    "ISC",   # flake8-implicit-str-concat: disallows implicit string concatenation
+    "N",     # pep8-naming: checks that names follow PEP8 naming conventions
+    "PERF",  # perflint: performance suggestions
+    "PIE",   # flake8-pie: detects anti-patterns (e.g., return after raise)
+    "PL",    # pylint rules: detects complexity, too many arguments, unused vars, etc.
+    "PT",    # flake8-pytest-style: enforces best practices for pytest
+    "PTH",   # flake8-use-pathlib: encourages use of pathlib over os.path
+    "Q",     # flake8-quotes: enforces consistent use of single or double quotes
+    "RET",   # flake8-return: detects unnecessary or redundant return statements
+    "RSE",   # flake8-raise: ensures proper usage of raise statements
+    "RUF",   # native Ruff rules: extra rules provided only by Ruff
+    "S",     # flake8-bandit: security checks (replaces the standalone bandit tool)
+    "SIM",   # flake8-simplify: suggests code simplifications
+    "SLF",   # flake8-self: flags private member access
+    "SLOT",  # flake8-slots: checks for use of __slots__ in class definitions
+    "T20",   # flake8-print: detects use of print() and pprint() in code
+    "TC",    # flake8-type-checking: ensures proper placement of type-checking imports
+    "TD",    # flake8-todos: checks for TODO comments and ensures they're valid
+    "TID",   # flake8-tidy-imports: bans relative parent imports
+    "TRY",   # tryceratops: finds useless or misused try/except blocks
+    "UP",    # pyupgrade: suggests Python syntax upgrades
+]
+lint.ignore = [
+    "ANN401", # Dynamically typed expressions (typing.Any) are disallowed in `*args`
+    "COM812", # Trailing comma missing (conflicts with ruff-format)
+    "D203",   # 1 blank line required before class docstring (conflicts with D211)
+    "D213",   # Summary starts on second line of docstring (conflicts with D212)
+    "E501",   # Line too long (ruff-format owns line length)
+    "S101",   # Use of `assert` detected
+    "TRY003", # Avoid specifying long messages outside the exception class
+]
+{%- if is_django %}
+lint.per-file-ignores."manage.py" = [
+    "INP001", # Entry point at the repository root
+]
+{%- endif %}
+lint.per-file-ignores."scripts/**/*.py" = [
+    "INP001", # Scripts are standalone files, not a package
+]
+{%- if is_django %}
+# Environment settings modules star-import the base settings by design.
+lint.per-file-ignores."src/{{ package_name }}/settings/**/*.py" = [
+    "F403", # `from module import *` used
+    "F405", # Name may be undefined, or defined from star imports
+]
+{%- endif %}
+lint.per-file-ignores."tests/**/*.py" = [
+    "D100",    # Missing docstring in public module
+    "D104",    # Missing docstring in public package
+    "D106",    # Missing docstring in public nested class
+    "PLR2004", # Magic value used in comparison
+    "TC",      # Fixture and helper types are imported plainly, without TYPE_CHECKING blocks
+    "TD003",   # Missing issue link for this TODO
+]
+lint.fixable = [ "ALL" ]
+lint.pylint.max-positional-args = 5
+
+[tool.pyproject-fmt]
+#
+# P Y P R O J E C T - F M T
+#
+column_width = 99
+indent = 4
+keep_full_version = false
+max_supported_python = "3.14"
+
+[tool.ty]
+#
+# T Y
+#
+src.include = [ {% if is_django %}"manage.py", {% endif %}"scripts", "src", "tests" ]
+src.exclude = [ "**/migrations/" ]
+environment.python-version = "3.14"
+terminal.error-on-warning = true
+
+[tool.pytest]
+#
+# P Y T E S T
+#
+ini_options.minversion = "9.0"
+ini_options.testpaths = [ "tests" ]
+ini_options.python_files = [ "test_*.py" ]
+# Coverage is always measured, so the floor in [tool.coverage] applies locally
+# as well as in CI. Pass --no-cov to skip it.
+ini_options.addopts = "-ra -q --strict-markers --strict-config --cov"
+ini_options.xfail_strict = true
+ini_options.filterwarnings = [ "error" ]
+{%- if is_django %}
+ini_options.DJANGO_SETTINGS_MODULE = "{{ package_name }}.settings.test"
+{%- endif %}
+
+[tool.coverage]
+#
+# C O V E R A G E
+#
+run.source = [ "{{ package_name }}" ]
+{%- if is_django %}
+run.omit = [
+    "*/asgi.py",
+    "*/interfaces/http.py", # type-only module
+    "*/migrations/*",
+    "*/settings/*",
+    "*/wsgi.py",
+]
+{%- endif %}
+run.branch = true
+run.parallel = true
+report.fail_under = 80
+report.exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+report.skip_covered = true
+report.show_missing = true
+
+[tool.importlinter]
+#
+# I M P O R T   L I N T E R
+#
+# The architecture is documented in AGENTS.md. Run with `just arch`.
+root_packages = [ "{{ package_name }}", "tests" ]
+include_external_packages = true
+# Layers, highest first. A layer may import the layers below it, never above.
+# `exhaustive` fails the build when a new top-level package is not assigned a layer.
+contracts = [
+    { id = "layers", name = "Layers: {% if not is_library %}interfaces > {% endif %}services > integrations > domain", type = "layers", containers = [
+        "{{ package_name }}",
+    ], layers = [
+{%- if not is_library %}
+        "interfaces",
+{%- endif %}
+        "services",
+        "integrations",
+        "domain",
+    ], exhaustive = true, exhaustive_ignores = [
+{%- if is_django %}
+        "asgi",
+        "config",
+        "settings",
+        "wsgi",
+{%- elif is_cli %}
+        "config",
+{%- endif %}
+    ] },
+    { id = "no-tests-in-source", name = "Source code never imports tests", type = "forbidden", source_modules = [
+        "{{ package_name }}",
+    ], forbidden_modules = [
+        "tests",
+    ] },
+{%- if is_django %}
+    { id = "settings-via-django-conf", name = "Settings are read through django.conf.settings", type = "forbidden", source_modules = [
+        "{{ package_name }}.domain",
+        "{{ package_name }}.integrations",
+        "{{ package_name }}.interfaces",
+        "{{ package_name }}.services",
+    ], forbidden_modules = [
+        "{{ package_name }}.config",
+        "{{ package_name }}.settings",
+    ] },
+    { id = "web-free-core", name = "Only interfaces know about HTTP and htmx", type = "forbidden", source_modules = [
+        "{{ package_name }}.domain",
+        "{{ package_name }}.integrations",
+        "{{ package_name }}.services",
+    ], forbidden_modules = [
+        "django_htmx",
+    ] },
+{%- elif is_cli %}
+    { id = "config-at-the-edge", name = "Configuration is loaded by interfaces and passed down", type = "forbidden", source_modules = [
+        "{{ package_name }}.domain",
+        "{{ package_name }}.integrations",
+        "{{ package_name }}.services",
+    ], forbidden_modules = [
+        "{{ package_name }}.config",
+    ] },
+    { id = "cli-free-core", name = "Only interfaces know about the CLI framework", type = "forbidden", source_modules = [
+        "{{ package_name }}.domain",
+        "{{ package_name }}.integrations",
+        "{{ package_name }}.services",
+    ], forbidden_modules = [
+        "typer",
+    ] },
+{%- endif %}
+]
+
+[tool.test-mirror]
+#
+# T E S T   M I R R O R  (scripts/check_test_mirror.py)
+#
+# Test files under tests/unit and tests/integration must mirror a source module.
+# List deliberate exceptions here, as paths relative to the repository root.
+exceptions = []

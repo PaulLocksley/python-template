@@ -1,0 +1,17 @@
+import pytest
+from django.test import Client
+from django.urls import reverse
+
+from tests.factories.user import UserFactory
+
+
+@pytest.mark.django_db
+def test_users_are_listed_in_the_admin(client: Client) -> None:
+    """The custom user model is registered with the admin site."""
+    client.force_login(UserFactory.create(is_staff=True, is_superuser=True))
+    UserFactory.create(username="ada")
+
+    response = client.get(reverse("admin:{{ package_name }}_user_changelist"))
+
+    assert response.status_code == 200
+    assert b"ada" in response.content

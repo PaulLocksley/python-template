@@ -1,0 +1,19 @@
+{
+  "name": "{{ project_name }}",
+  "image": "mcr.microsoft.com/devcontainers/python:3.14",
+  "features": {
+{%- if is_django %}
+    "ghcr.io/devcontainers/features/node:1": { "version": "24" },
+{%- endif %}
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "postCreateCommand": "pip install --user uv{% if is_django %} && corepack enable{% endif %} && uv run just setup",
+{%- if is_django %}
+  "forwardPorts": [8000, 5173],
+{%- endif %}
+  "customizations": {
+    "vscode": {
+      "extensions": ["astral-sh.ty", "charliermarsh.ruff", "editorconfig.editorconfig"]
+    }
+  }
+}

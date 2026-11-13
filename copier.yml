@@ -1,0 +1,82 @@
+_min_copier_version: "9.4.0"
+_subdirectory: template
+_answers_file: .copier-answers.yml
+
+_message_after_copy: |
+  Project "{{ project_name }}" created in {{ _copier_conf.dst_path }}.
+
+  Next steps:
+
+      cd {{ _copier_conf.dst_path }}
+      git init
+      uv run just setup    # install dependencies and git hooks
+      uv run just check    # lint, type check, architecture check, tests
+
+  Commit the generated lock file{% if project_type == 'django' %}s (uv.lock and pnpm-lock.yaml){% else %} (uv.lock){% endif %}: CI installs from them.
+
+_message_after_update: |
+  Template update applied. Review the diff, resolve any conflict markers,
+  then run `uv run just check`.
+
+project_name:
+  type: str
+  help: Human readable project name
+  validator: "{% if not project_name %}Required.{% endif %}"
+
+project_slug:
+  type: str
+  help: Distribution / repository name (lowercase, hyphens)
+  default: "{{ project_name | lower | replace(' ', '-') | replace('_', '-') }}"
+  validator: >-
+    {% if not (project_slug | regex_search('^[a-z][a-z0-9]*(-[a-z0-9]+)*$')) %}
+    Use lowercase letters, digits and single hyphens, starting with a letter.
+    {% endif %}
+
+package_name:
+  type: str
+  help: Python import name (lowercase, underscores)
+  default: "{{ project_slug | replace('-', '_') }}"
+  validator: >-
+    {% if not (package_name | regex_search('^[a-z][a-z0-9_]*$')) %}
+    Must be a valid lowercase Python identifier.
+    {% endif %}
+
+description:
+  type: str
+  help: One-line description
+  default: "{{ project_name }}"
+
+author_name:
+  type: str
+  help: Author or team name
+  default: Development Team
+
+author_email:
+  type: str
+  help: Author or team email
+  validator: "{% if '@' not in author_email %}Enter an email address.{% endif %}"
+
+project_type:
+  type: str
+  help: What kind of project is this?
+  choices:
+    Django web app (TypeScript + htmx + Tailwind): django
+    CLI / service: cli
+    Library: library
+  default: django
+
+# Computed values, never asked.
+is_django:
+  type: bool
+  default: "{{ project_type == 'django' }}"
+  when: false
+
+is_cli:
+  type: bool
+  default: "{{ project_type == 'cli' }}"
+  when: false
+
+is_library:
+  type: bool
+  default: "{{ project_type == 'library' }}"
+  when: false

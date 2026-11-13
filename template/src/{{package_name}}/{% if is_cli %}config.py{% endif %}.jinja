@@ -1,0 +1,20 @@
+"""Typed configuration, read from the environment and an optional ``.env`` file.
+
+Only interfaces load configuration; they pass plain values down to services.
+"""
+
+from typing import Literal
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Runtime configuration. Field ``log_level`` is read from ``{{ package_name | upper }}_LOG_LEVEL``."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="{{ package_name | upper }}_",
+        env_file=".env",
+        extra="ignore",
+    )
+
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"

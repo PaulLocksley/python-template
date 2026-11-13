@@ -1,0 +1,18 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "pre-commit": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "description": "Group non-major updates into one merge request per ecosystem",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "{{manager}} non-major"
+    }
+  ]
+}

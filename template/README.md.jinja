@@ -1,0 +1,73 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Requirements
+
+- [uv](https://docs.astral.sh/uv/) (installs Python 3.14 and everything else)
+{%- if is_django %}
+- Node 24+ with [pnpm](https://pnpm.io/) (`corepack enable`)
+- Docker, for the local Postgres
+{%- endif %}
+
+## Getting started
+
+```sh
+uv run just setup     # dependencies and git hooks
+{%- if is_django %}
+uv run just up        # start Postgres
+uv run just migrate
+uv run just dev       # Django on :8000, Vite on :5173
+{%- elif is_cli %}
+uv run {{ project_slug }} hello Ada
+{%- endif %}
+uv run just check     # everything CI runs
+```
+
+`just` is installed into the project environment. Install it globally (or
+activate `.venv`) to drop the `uv run` prefix. `just` on its own lists every recipe.
+
+## Layout
+
+```
+src/{{ package_name }}/
+{%- if not is_library %}
+  interfaces/    entry points
+{%- endif %}
+  services/      use cases
+  integrations/  external systems
+  domain/        {% if is_django %}models and business rules{% else %}business rules{% endif %}
+{%- if is_django %}
+  settings/      base, dev, test, prod
+frontend/src/    TypeScript and Tailwind, built by Vite
+{%- endif %}
+tests/           unit, integration, functional
+```
+
+Layering is enforced by Import Linter. See [AGENTS.md](AGENTS.md) for the
+rules and conventions.
+
+## Configuration
+
+{% if is_library -%}
+The library reads no configuration from the environment.
+{%- else -%}
+Environment variables are declared and validated in
+`src/{{ package_name }}/config.py`; `.env.example` lists them.
+{%- if is_django %} Development and tests need none. Production must set `SECRET_KEY`,
+`DATABASE_URL` and `ALLOWED_HOSTS`.
+{%- endif %}
+{%- endif %}
+
+## Releasing
+
+Push a tag such as `v1.2.3`. The version is derived from the tag; CI
+{%- if is_library %} publishes the package to the GitLab package registry and
+{%- else %} pushes the Docker image to the GitLab container registry and
+{%- endif %} creates a GitLab release with notes generated from the commit history.
+
+## Updating from the template
+
+```sh
+uvx copier update
+```

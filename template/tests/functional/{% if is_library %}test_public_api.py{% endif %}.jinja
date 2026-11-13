@@ -1,0 +1,6 @@
+import {{ package_name }}
+
+
+def test_public_api_greets() -> None:
+    """The package root exposes the supported public API."""
+    assert {{ package_name }}.greet("Ada") == {{ package_name }}.Greeting(name="Ada")

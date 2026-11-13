@@ -1,0 +1,22 @@
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vite";
+
+// Django serves the HTML; Vite only builds (and in development, serves) assets.
+// django-vite reads frontend/dist/manifest.json to resolve hashed file names.
+export default defineConfig({
+  base: "/static/",
+  plugins: [tailwindcss()],
+  build: {
+    manifest: "manifest.json",
+    outDir: "frontend/dist",
+    emptyOutDir: true,
+    rollupOptions: {
+      input: "frontend/src/main.ts",
+    },
+  },
+  server: {
+    host: "127.0.0.1",
+    port: 5173,
+    strictPort: true,
+  },
+});

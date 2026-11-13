@@ -1,0 +1,14 @@
+import pytest
+
+from {{ package_name }}.services.greeting import greet
+
+
+def test_greet_uses_the_given_name() -> None:
+    """Surrounding whitespace is stripped from the name."""
+    assert greet("  Ada ").name == "Ada"
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+def test_greet_falls_back_to_default(blank: str) -> None:
+    """A blank name greets the world."""
+    assert greet(blank).name == "world"
