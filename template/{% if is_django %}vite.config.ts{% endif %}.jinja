@@ -1,11 +1,15 @@
+{% if is_tailwind -%}
 import tailwindcss from "@tailwindcss/vite";
+{% endif -%}
 import { defineConfig } from "vite";
 
 // Django serves the HTML; Vite only builds (and in development, serves) assets.
 // django-vite reads frontend/dist/manifest.json to resolve hashed file names.
 export default defineConfig({
   base: "/static/",
+{%- if is_tailwind %}
   plugins: [tailwindcss()],
+{%- endif %}
   build: {
     manifest: "manifest.json",
     outDir: "frontend/dist",

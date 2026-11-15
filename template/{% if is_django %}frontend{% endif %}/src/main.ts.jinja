@@ -1,3 +1,9 @@
+{%- if is_bootstrap -%}
+import "bootstrap/dist/css/bootstrap.min.css";
+// Bootstrap's components (dropdowns, modals, collapse, ...) use event delegation,
+// so they also work in content htmx swaps in later.
+import "bootstrap";
+{% endif -%}
 import "./main.css";
 import { flashSwappedContent } from "./flash";
 

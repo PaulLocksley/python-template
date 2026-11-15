@@ -43,7 +43,7 @@ src/{{ package_name }}/
   utils/         generic helpers
 {%- if is_django %}
   settings/      base, dev, test, prod
-frontend/src/    TypeScript and Tailwind, built by Vite
+frontend/src/    TypeScript and {% if is_tailwind %}Tailwind{% else %}Bootstrap{% endif %}, built by Vite
 {%- endif %}
 tests/           unit, integration, functional
 ```
@@ -66,9 +66,21 @@ Environment variables are declared and validated in
 ## Releasing
 
 Push a tag such as `v1.2.3`. The version is derived from the tag; CI
+{%- if is_gitlab %}
 {%- if is_library %} publishes the package to the GitLab package registry and
 {%- else %} pushes the Docker image to the GitLab container registry and
 {%- endif %} creates a GitLab release with notes generated from the commit history.
+{%- else %}
+{%- if not is_library %} pushes the Docker image to the GitHub container registry (ghcr.io) and
+{%- endif %} creates a GitHub release with notes generated from the commit history
+{%- if is_library %}, with the wheel and sdist attached.
+
+To also publish to PyPI, add this repository (workflow `ci.yml`, environment
+`pypi`) as a trusted publisher on PyPI and set the repository variable
+`PYPI_PUBLISH` to `true`.
+{%- else %}.
+{%- endif %}
+{%- endif %}
 
 ## Updating from the template
 

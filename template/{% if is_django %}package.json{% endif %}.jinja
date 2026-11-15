@@ -13,10 +13,20 @@
     "check": "biome ci",
     "fmt": "biome check --write"
   },
+{%- if is_bootstrap %}
+  "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "bootstrap": "^5.3.9"
+  },
+{%- endif %}
   "devDependencies": {
     "@biomejs/biome": "2.6.7",
+{%- if is_tailwind %}
     "@tailwindcss/vite": "^4.3.5",
     "tailwindcss": "^4.3.5",
+{%- else %}
+    "@types/bootstrap": "^5.2.11",
+{%- endif %}
     "typescript": "^7.0.2",
     "vite": "^8.3.8"
   }

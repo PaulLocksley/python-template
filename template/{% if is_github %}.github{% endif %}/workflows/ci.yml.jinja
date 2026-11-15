@@ -1,0 +1,217 @@
+name: CI
+{%- raw %}
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    # Releases are cut by pushing a tag such as v1.2.3. The version comes from the tag.
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+
+# A newer push cancels the run it supersedes. Tag runs are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: ${{ matrix.recipe }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        recipe: [lint, typecheck, arch, audit]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # hatch-vcs derives the version from git tags, so it needs the history.
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run just ${{ matrix.recipe }}
+
+  test:
+    runs-on: ubuntu-latest
+{%- endraw %}
+{%- if is_django %}
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: {{ package_name }}
+          POSTGRES_PASSWORD: {{ package_name }}
+          POSTGRES_DB: {{ package_name }}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://{{ package_name }}:{{ package_name }}@localhost:5432/{{ package_name }}
+{%- endif %}
+{%- raw %}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run just test -n auto --junitxml=report.xml --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: |
+            report.xml
+            coverage.xml
+{%- endraw %}
+{%- if is_django %}
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: |
+          corepack enable
+          pnpm config set store-dir "$HOME/.cache/pnpm"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pnpm
+          key: {{ "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}" }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec biome ci
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm exec vite build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 1
+
+  django-check:
+    # The production settings check reads the Vite manifest.
+    needs: frontend
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: {{ package_name }}
+          POSTGRES_PASSWORD: {{ package_name }}
+          POSTGRES_DB: {{ package_name }}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://{{ package_name }}:{{ package_name }}@localhost:5432/{{ package_name }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: actions/download-artifact@v5
+        with:
+          name: frontend-dist
+          path: frontend/dist
+      - run: uv sync --locked
+      - run: uv run just django-check
+{%- endif %}
+{%- if not is_library %}
+
+  # Builds on every run so a broken Dockerfile is caught in review, but only
+  # pushes to the GitHub container registry from the default branch (as :latest
+  # and :<sha>) and from tags (as :<tag>).
+  image:
+    needs: [check, test{% if is_django %}, frontend, django-check{% endif %}]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+{%- raw %}
+      - name: Build
+        run: |
+          # Registry paths must be lowercase; repository names need not be.
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          SHORT_SHA="${GITHUB_SHA::8}"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=$SHORT_SHA" >> "$GITHUB_ENV"
+{%- endraw %}
+          docker build --pull{% if is_cli %} --build-arg "VERSION={{ "${{ github.ref_type == 'tag' && github.ref_name || '0.0.0' }}" }}"{% endif %} --tag "$IMAGE:$SHORT_SHA" .
+{%- raw %}
+      - name: Push
+        if: github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            docker tag "$IMAGE:$SHORT_SHA" "$IMAGE:$GITHUB_REF_NAME"
+            docker push "$IMAGE:$GITHUB_REF_NAME"
+          elif [ "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" ]; then
+            docker tag "$IMAGE:$SHORT_SHA" "$IMAGE:latest"
+            docker push "$IMAGE:$SHORT_SHA"
+            docker push "$IMAGE:latest"
+          fi
+{%- endraw %}
+{%- endif %}
+{%- if is_library %}
+
+  # Publishes to PyPI with trusted publishing (no token). Register this
+  # repository, workflow `ci.yml` and environment `pypi` as a trusted publisher
+  # on PyPI, then set the repository variable PYPI_PUBLISH to `true`.
+  publish:
+    if: github.ref_type == 'tag' && vars.PYPI_PUBLISH == 'true'
+    needs: [check, test]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - run: uv build
+      - run: uv publish --trusted-publishing always
+{%- endif %}
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [{% if is_library %}check, test{% else %}image{% endif %}]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # git-cliff reads the commit history between tags.
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - run: uvx git-cliff --latest --output release-notes.md
+{%- if is_library %}
+      - run: uv build
+{%- endif %}
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: {{ "${{ github.token }}" }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --notes-file release-notes.md{% if is_library %} dist/*{% endif %}

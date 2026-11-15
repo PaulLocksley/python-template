@@ -12,11 +12,13 @@
     "indentStyle": "space",
     "lineWidth": 99
   },
+{%- if is_tailwind %}
   "css": {
     "parser": {
       "tailwindDirectives": true
     }
   },
+{%- endif %}
   "assist": {
     "actions": {
       "source": {

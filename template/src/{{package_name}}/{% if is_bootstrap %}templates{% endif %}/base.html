@@ -1,0 +1,23 @@
+{% load django_vite static %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>
+            {% block title %}
+                Home
+            {% endblock title %}
+        </title>
+        {% vite_hmr_client %}
+        {% vite_asset "frontend/src/main.ts" %}
+        <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+    </head>
+    <body class="min-vh-100 bg-body-tertiary"
+          hx-headers='{"x-csrftoken": "{{ csrf_token }}"}'>
+        <main class="container py-5">
+            {% block content %}
+            {% endblock content %}
+        </main>
+    </body>
+</html>

@@ -60,10 +60,27 @@ project_type:
   type: str
   help: What kind of project is this?
   choices:
-    Django web app (TypeScript + htmx + Tailwind): django
+    Django web app (TypeScript + htmx + Tailwind or Bootstrap): django
     CLI / service: cli
     Library: library
   default: django
+
+css_framework:
+  type: str
+  help: CSS framework for the Django frontend
+  choices:
+    Tailwind CSS (utility classes, compiled from your templates): tailwind
+    Bootstrap (components and utilities, prebuilt CSS and JS): bootstrap
+  default: tailwind
+  when: "{{ project_type == 'django' }}"
+
+ci_provider:
+  type: str
+  help: Where will the repository be hosted (CI, registries and releases)?
+  choices:
+    GitLab (GitLab CI): gitlab
+    GitHub (GitHub Actions): github
+  default: gitlab
 
 # Computed values, never asked.
 is_django:
@@ -79,4 +96,24 @@ is_cli:
 is_library:
   type: bool
   default: "{{ project_type == 'library' }}"
+  when: false
+
+is_gitlab:
+  type: bool
+  default: "{{ ci_provider == 'gitlab' }}"
+  when: false
+
+is_github:
+  type: bool
+  default: "{{ ci_provider == 'github' }}"
+  when: false
+
+is_tailwind:
+  type: bool
+  default: "{{ project_type == 'django' and css_framework == 'tailwind' }}"
+  when: false
+
+is_bootstrap:
+  type: bool
+  default: "{{ project_type == 'django' and css_framework == 'bootstrap' }}"
   when: false

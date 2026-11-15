@@ -12,9 +12,17 @@ from pathlib import Path
 
 import copier
 import pytest
+import yaml
 
 TEMPLATE = Path(__file__).resolve().parent.parent
-VARIANTS = ("library", "cli", "django")
+# Variant name -> Copier answers that differ from the defaults.
+VARIANTS = {
+    "library": {"project_type": "library"},
+    "cli": {"project_type": "cli"},
+    "django": {"project_type": "django", "css_framework": "tailwind"},
+    "django-bootstrap": {"project_type": "django", "css_framework": "bootstrap"},
+}
+CI_FILES = {"gitlab": ".gitlab-ci.yml", "github": ".github/workflows/ci.yml"}
 SHARED_LAYERS = ("usecases", "domain", "vendors", "data", "utils")
 # (importing layer, imported layer) pairs that the architecture forbids.
 FORBIDDEN_IMPORTS = (
@@ -45,7 +53,8 @@ def run(project: Path, *command: str, check: bool = True) -> subprocess.Complete
 def project(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Generate one variant and install its dependencies."""
     variant: str = request.param
-    if variant == "django" and shutil.which("pnpm") is None:
+    django = VARIANTS[variant]["project_type"] == "django"
+    if django and shutil.which("pnpm") is None:
         pytest.skip("pnpm is required for the Django variant (run `corepack enable`)")
     destination = tmp_path_factory.mktemp(variant) / "project"
     copier.run_copy(
@@ -54,7 +63,7 @@ def project(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFac
         data={
             "project_name": f"Demo {variant}",
             "author_email": "dev@example.org",
-            "project_type": variant,
+            **VARIANTS[variant],
         },
         defaults=True,
         vcs_ref="HEAD",
@@ -62,14 +71,19 @@ def project(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFac
     )
     run(destination, "git", "init", "--quiet")
     run(destination, "uv", "sync", "--quiet")
-    if variant == "django":
+    if django:
         run(destination, "pnpm", "install", "--silent")
     return destination
 
 
+def variant_of(project: Path) -> str:
+    """Return the variant a generated project was made from."""
+    return project.parent.name.rstrip("0123456789")
+
+
 def package_dir(project: Path) -> Path:
     """Return the generated package directory."""
-    return project / "src" / f"demo_{project.parent.name.rstrip('0123456789')}"
+    return project / "src" / f"demo_{variant_of(project).replace('-', '_')}"
 
 
 def test_generated_project_passes_its_own_checks(project: Path) -> None:
@@ -90,16 +104,33 @@ def test_git_hooks_pass_on_a_fresh_project(project: Path) -> None:
 
 def test_has_the_expected_layers(project: Path) -> None:
     """Each variant gets its layers, and libraries get no interface layer."""
-    variant = project.parent.name.rstrip("0123456789")
+    variant = variant_of(project)
+    django = VARIANTS[variant]["project_type"] == "django"
     package = package_dir(project)
 
     for layer in SHARED_LAYERS:
         assert (package / layer / "__init__.py").is_file()
     assert (package / "interface").exists() == (variant != "library")
-    assert (package / "interface" / "ui").exists() == (variant == "django")
-    assert (package / "interface" / "api").exists() == (variant == "django")
-    assert (project / "package.json").exists() == (variant == "django")
+    assert (package / "interface" / "ui").exists() == django
+    assert (package / "interface" / "api").exists() == django
+    assert (package / "templates" / "base.html").exists() == django
+    assert (project / "package.json").exists() == django
     assert (project / "Dockerfile").exists() == (variant != "library")
+
+
+def test_css_framework_is_wired_through(project: Path) -> None:
+    """Only the chosen CSS framework appears in the dependencies and templates."""
+    framework = VARIANTS[variant_of(project)].get("css_framework")
+    if framework is None:
+        pytest.skip("only Django projects have a frontend")
+    other = {"tailwind": "bootstrap", "bootstrap": "tailwind"}[framework]
+    package_json = (project / "package.json").read_text()
+    base_html = (package_dir(project) / "templates" / "base.html").read_text()
+
+    assert framework in package_json
+    assert other not in package_json
+    assert ("container" in base_html) == (framework == "bootstrap")
+    assert ("max-w-2xl" in base_html) == (framework == "tailwind")
 
 
 @pytest.mark.parametrize(("importer", "imported"), FORBIDDEN_IMPORTS)
@@ -156,3 +187,32 @@ def test_orphan_test_file_breaks_the_mirror_check(project: Path) -> None:
 
     assert result.returncode == 1
     assert "tests/unit/domain/test_nothing.py" in result.stderr
+
+
+@pytest.mark.parametrize("variant", ["library", "cli", "django"])
+@pytest.mark.parametrize("provider", CI_FILES)
+def test_ci_provider_selects_one_pipeline(tmp_path: Path, variant: str, provider: str) -> None:
+    """Exactly the chosen provider's pipeline is generated, and it is valid YAML."""
+    copier.run_copy(
+        str(TEMPLATE),
+        tmp_path,
+        data={
+            "project_name": f"Demo {variant}",
+            "author_email": "dev@example.org",
+            "project_type": variant,
+            "ci_provider": provider,
+        },
+        defaults=True,
+        vcs_ref="HEAD",
+        quiet=True,
+    )
+    for name, path in CI_FILES.items():
+        assert (tmp_path / path).is_file() == (name == provider)
+    assert (tmp_path / ".github").exists() == (provider == "github")
+
+    pipeline = yaml.safe_load((tmp_path / CI_FILES[provider]).read_text())
+    jobs = pipeline["jobs"] if provider == "github" else pipeline
+    assert "release" in jobs
+    assert ("image" in jobs) == (variant != "library")
+    assert ("publish" in jobs) == (variant == "library")
+    assert ("django-check" in jobs) == (variant == "django")

@@ -355,6 +355,7 @@ source = { virtual = "." }
 dev = [
     { name = "copier" },
     { name = "pytest" },
+    { name = "pyyaml" },
     { name = "ruff" },
     { name = "rust-just" },
 ]
@@ -365,6 +366,7 @@ dev = [
 dev = [
     { name = "copier", specifier = ">=9.19" },
     { name = "pytest", specifier = ">=9.2" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "ruff", specifier = ">=0.17" },
     { name = "rust-just", specifier = ">=1.59" },
 ]

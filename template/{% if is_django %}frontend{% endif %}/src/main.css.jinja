@@ -1,0 +1,27 @@
+{%- if is_tailwind -%}
+@import "tailwindcss";
+
+/* Tailwind scans these for class names. */
+@source "../../src";
+
+/* Swapped-in content fades from this colour back to its own (see flash.ts). */
+[data-flash] {
+  @apply transition-colors duration-700;
+}
+
+.flash {
+  @apply text-sky-600;
+}
+{%- else -%}
+/* Bootstrap is imported by main.ts. Theme it by overriding its CSS variables
+   (https://getbootstrap.com/docs/5.3/customize/css-variables/) here. */
+
+/* Swapped-in content fades from this colour back to its own (see flash.ts). */
+[data-flash] {
+  transition: color 0.7s;
+}
+
+.flash {
+  color: var(--bs-primary);
+}
+{%- endif %}

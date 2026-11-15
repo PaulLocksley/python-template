@@ -8,7 +8,9 @@
 {%- if is_django %},
     "batisteo.vscode-django",
     "biomejs.biome",
+{%- if is_tailwind %}
     "bradlc.vscode-tailwindcss",
+{%- endif %}
     "monosans.djlint"
 {%- endif %}
   ]

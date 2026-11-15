@@ -71,8 +71,14 @@ Rules that follow from this:
 - **htmx.** Views return a full page, or a template partial
   (`render(request, "feature/page.html#partial")`) when `request.htmx` is set.
   htmx is vendored at `static/vendor/`; update it with `just vendor-htmx`.
-- **Frontend.** TypeScript and Tailwind live in `frontend/src` and are built by
+- **Frontend.** TypeScript and {% if is_tailwind %}Tailwind{% else %}Bootstrap{% endif %} live in `frontend/src` and are built by
   Vite. Prefer htmx attributes over custom TypeScript.
+{%- if is_tailwind %} Style with Tailwind utility classes in the templates;
+  Tailwind only emits classes it finds in `src/` and `frontend/src`, so never
+  build class names by string concatenation.
+{%- else %} Style with Bootstrap's components and utility classes;
+  theme it by overriding its CSS variables in `frontend/src/main.css`.
+{%- endif %}
 {%- elif is_cli %}
 - **Configuration** is loaded by the interface layer from `config.py` and
   passed down as plain values. Lower layers never read the environment.
