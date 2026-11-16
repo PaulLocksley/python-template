@@ -31,14 +31,14 @@ uvx copier update
 - **uv** for dependencies (`uv.lock` committed) and **just** for tasks. `just`
   is a dev dependency, so `uv run just ...` works with nothing else installed.
 - **Layered architecture enforced by Import Linter**:
-  `interface > usecases > domain | vendors > data > utils`, the aarbox
+  `interface > usecases > domain | vendors > data > utils`, the
   layering. Only `usecases` may call `vendors`, each layer is organised by
   feature, and new top-level packages must be assigned a layer. See the
   generated `AGENTS.md`.
 - **Tests** in top-level `tests/` split into `unit`, `integration` and
   `functional`. Unit and integration tests must mirror the source tree
   (`scripts/check_test_mirror.py`). 80% branch coverage floor, warnings are errors.
-- **ruff** (lint + format, the aarbox rule set tidied up, line length 99),
+- **ruff** (lint + format, the rule set tidied up, line length 99),
   **ty** for type checking, **pyproject-fmt**, **pip-audit**.
 - **pre-commit**: fast checks on commit; type check, architecture and unit
   tests on push. Hooks run tools from the project environment, so versions are
@@ -54,7 +54,7 @@ uvx copier update
 
 ## Django specifics
 
-- The package is one Django app, as in aarbox: `migrations/`, `templates/`
+- The package is one Django app, as in: `migrations/`, `templates/`
   and `static/` sit at the package root. Models live in
   `data/<feature>/models.py` and are registered in `models.py`.
 - `interface/` is split into `api/` and `ui/`.
